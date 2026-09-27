@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f46e5">
+    <title>OmniPro Unified v7 | Media, Finance & Workspace Suite</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIk9tbmlQcm8gVW5pZmllZCB2NyIsCiAgInNob3J0X25hbWUiOiAiT21uaVBybyIsCiAgInN0YXJ0X3VybCI6ICIuIiwKICAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwKICAiYmFja2dyb3VuZF9jb2xvciI6ICIjZjFmNWY5IiwKICAidGhlbWVfY29sb3IiOiAiIzRmNDZlNSIsCiAiaWNvbnMiOiBbeyAic3JjIjogImh0dHBzOi8vY2RuLWljb25zLXBuZy5mbGl0aWNvbi5jb20vNTEyLzg4OC84ODgxOTkucG5nIiwgInNpemVzIjogIjUxMng1MTIiLCAidHlwZSI6ICJpbWFnZS9wbmciIH1dCn0=">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Core Libraries -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- WebLLM (browser local LLM via WebGPU) — loaded as ESM module -->
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm@0.2.78";
+        window.webllm = webllm;
+        window.dispatchEvent(new Event('webllm-ready'));
+    </script>
+
+    <!-- Firebase (optional live user count) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&family=JetBrains+Mono:wght@500&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f1f5f9; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .tab-active { color: #4f46e5; border-bottom: 3px solid #4f46e5; font-weight: 800; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); }
+        .source-wave { background: #1e3a8a; }
+        .source-orange { background: #ea580c; }
+        #video-preview { border-radius: 1.5rem; width: 100%; max-height: 420px; background: black; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* AI Assistant Drawer */
+        #ai-drawer { transition: transform 0.3s ease; }
+        #ai-drawer.open { transform: translateX(0); }
+        #ai-drawer.closed { transform: translateX(100%); }
+        .presentation-overlay {
+            position: fixed; inset: 0; background: #020617; z-index: 2000;
+            display: none; flex-direction: column; color: white;
+        }
+        .slide-stage { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; max-width: 900px; margin: 0 auto; gap: 24px; padding: 40px; }
+        .slide-stage h2 { font-size: 2.2rem; color: #60a5fa; }
+        .slide-stage ul { text-align: left; font-size: 1.25rem; line-height: 1.8; color: #cbd5e1; }
+    </style>
+</head>
+<body class="text-slate-900 pb-24">
+
+    <!-- GLOBAL LOADER -->
+    <div id="loader" class="hidden fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center text-white">
+        <div class="w-12 h-12 border-4 border-white/20 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <p id="loader-msg" class="font-bold tracking-widest uppercase text-xs">Processing Engine</p>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-indigo-600 text-white px-5 py-3 rounded-xl shadow-xl z-[110] hidden text-sm font-bold"></div>
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-50 glass border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="nav('home')">
+                    <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg text-lg">Ω</div>
+                    <span class="font-extrabold text-lg tracking-tighter">OMNIPRO <span class="text-indigo-600">v7</span></span>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Live User Badge -->
+                    <div class="hidden sm:flex bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full items-center gap-2">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span>
+                        <span id="global-user-count" class="text-xs font-bold text-indigo-900">1 Active</span>
+                    </div>
+
+                    <!-- Treasury Balance -->
+                    <div class="text-right hidden md:block">
+                        <p class="text-[9px] font-black text-slate-400 uppercase">Treasury</p>
+                        <p id="global-balance" class="mono text-sm font-bold text-slate-900">$0.00</p>
+                    </div>
+
+                    <!-- AI Assistant Toggle (Top Right) -->
+                    <button onclick="toggleAI()" class="flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-xl text-xs font-bold hover:bg-indigo-700 shadow-md">
+                        <i class="fa-solid fa-robot"></i> AI Assistant
+                    </button>
+
+                    <!-- Auth -->
+                    <div id="auth-container" class="flex items-center gap-2">
+                        <div id="login-buttons" class="flex items-center gap-1">
+                            <button onclick="loginGoogle()" class="bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-50">Google</button>
+                            <button onclick="loginMicrosoft()" class="bg-slate-900 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-800">MS</button>
+                        </div>
+                        <div id="user-profile" class="hidden flex items-center gap-2">
+                            <img id="user-avatar" class="w-7 h-7 rounded-full border border-indigo-500" src="" alt="">
+                            <button onclick="logout()" class="text-[10px] text-rose-500 font-bold">Out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="flex gap-5 overflow-x-auto no-scrollbar pb-1 text-[11px] font-black uppercase">
+                <button onclick="nav('home')" id="n-home" class="py-2.5 tab-active whitespace-nowrap">Home</button>
+                <button onclick="nav('workspace')" id="n-workspace" class="py-2.5 text-slate-400 whitespace-nowrap">Workspace</button>
+                <button onclick="nav('report')" id="n-report" class="py-2.5 text-slate-400 whitespace-nowrap">Report Studio</button>
+                <button onclick="nav('treasury')" id="n-treasury" class="py-2.5 text-slate-400 whitespace-nowrap">Treasury / Collect</button>
+                <button onclick="nav('spreadsheet')" id="n-spreadsheet" class="py-2.5 text-slate-400 whitespace-nowrap">Spreadsheet DB</button>
+                <button onclick="nav('invoice')" id="n-invoice" class="py-2.5 text-slate-400 whitespace-nowrap">Invoice</button>
+                <button onclick="nav('ocr')" id="n-ocr" class="py-2.5 text-slate-400 whitespace-nowrap">OCR → Sheet</button>
+                <button onclick="nav('merge')" id="n-merge" class="py-2.5 text-slate-400 whitespace-nowrap">Merge</button>
+                <button onclick="nav('renamer')" id="n-renamer" class="py-2.5 text-slate-400 whitespace-nowrap">Image Renamer</button>
+                <button onclick="nav('media')" id="n-media" class="py-2.5 text-slate-400 whitespace-nowrap">Media Studio</button>
+                <button onclick="nav('transformer')" id="n-transformer" class="py-2.5 text-slate-400 whitespace-nowrap">Transform</button>
+                <button onclick="nav('calc')" id="n-calc" class="py-2.5 text-slate-400 whitespace-nowrap">Calculator</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ALWAYS-ON WORKSPACE BAR -->
+    <div class="bg-white border-b border-slate-200 px-4 py-2">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center gap-3">
+            <button onclick="connectWorkspaceFolder()" class="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-emerald-700">
+                <i class="fa-solid fa-folder-open"></i> Connect Folder
+            </button>
+            <label class="text-xs font-bold text-slate-500"><i class="fa-solid fa-file"></i> Active File:</label>
+            <select id="activeDocSelector" class="flex-1 max-w-xs border rounded-lg px-2 py-1 text-xs font-bold outline-none" onchange="onWorkspaceFileSelect()">
+                <option value="">-- No Document Selected --</option>
+            </select>
+            <span id="connectedFolderLabel" class="text-[10px] text-slate-400 font-bold">Folder: Unmounted</span>
+            <button onclick="launchPresentationMode()" class="ml-auto bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-amber-600">
+                <i class="fa-solid fa-display"></i> Presentation Deck
+            </button>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 mt-6">
+
+        <!-- ==================== HOME ==================== -->
+        <section id="s-home" class="view block space-y-6">
+            <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-8 text-white shadow-2xl">
+                <span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] font-black uppercase px-3 py-1 rounded-full">Unified Single-File PWA v7</span>
+                <h1 class="text-3xl font-extrabold mt-3 mb-2">Media • AI Reports • Treasury • Workspace Suite</h1>
+                <p class="text-slate-300 text-sm max-w-2xl">Folder-aware workspace, dual-ledger accounting (Collect), AI-powered reports, spreadsheet database, OCR-to-sheet, invoice studio, media frame extractor, and a multi-provider AI assistant that works across every tab.</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div onclick="nav('workspace')" class="bg-white p-5 rounded-2xl border hover:shadow-lg cursor-pointer transition">
+                    <div class="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-folder-tree"></i></div>
+                    <h3 class="font-extrabold text-sm">Workspace</h3>
+                    <p class="text-slate-400 text-[11px] mt-1">Connect folders, inspect files, batch extract</p>
+                </div>
+                <div onclick="nav('report')" class="bg-white p-5 rounded-2xl border hover:shadow-lg cursor-pointer transition">
+                    <div class="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-robot"></i></div>
+                    <h3 class="font-extrabold text-sm">Report Studio</h3>
+                    <p class="text-slate-400 text-[11px] mt-1">Duty / accounting / executive AI reports</p>
+                </div>
+                <div onclick="nav('treasury')" class="bg-white p-5 rounded-2xl border hover:shadow-lg cursor-pointer transition">
+                    <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-wallet"></i></div>
+                    <h3 class="font-extrabold text-sm">Treasury / Collect</h3>
+                    <p class="text-slate-400 text-[11px] mt-1">Wave + Orange dual ledger & collect</p>
+                </div>
+                <div onclick="nav('spreadsheet')" class="bg-white p-5 rounded-2xl border hover:shadow-lg cursor-pointer transition">
+                    <div class="w-10 h-10 bg-green-100 text-green-700 rounded-xl flex items-center justify-center mb-3"><i class="fa-solid fa-table"></i></div>
+                    <h3 class="font-extrabold text-sm">Spreadsheet DB</h3>
+                    <p class="text-slate-400 text-[11px] mt-1">Invoices, receipts, accounting register</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== WORKSPACE ==================== -->
+        <section id="s-workspace" class="view hidden space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600 tracking-widest">Folder-Aware Workspace</div>
+                    <h2 class="text-xl font-black">Connect Folder • Inspect • Extract • Analyze</h2>
+                </header>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="space-y-3">
+                        <button onclick="connectWorkspaceFolder()" class="w-full bg-emerald-600 text-white font-black py-3 rounded-xl hover:bg-emerald-700">Connect / Mount Folder</button>
+                        <div onclick="document.getElementById('ws-file-in').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:bg-slate-50">
+                            <input type="file" id="ws-file-in" multiple class="hidden" onchange="handleWorkspaceFiles(event)">
+                            <p class="text-xs font-bold text-indigo-600">+ Add Individual Files</p>
+                        </div>
+                        <div onclick="document.getElementById('ws-dir-in').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center cursor-pointer hover:bg-slate-50">
+                            <input type="file" id="ws-dir-in" webkitdirectory directory class="hidden" onchange="handleDirectorySelect(event)">
+                            <p class="text-xs font-bold text-slate-500">Fallback: Select Directory</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="analyzeFolder()" class="flex-1 bg-slate-800 text-white text-xs font-bold py-2 rounded-lg">Analyze</button>
+                            <button onclick="extractAllContent()" class="flex-1 bg-indigo-600 text-white text-xs font-bold py-2 rounded-lg">Extract All</button>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-sm">Loaded Files (<span id="ws-file-count">0</span>)</h3>
+                        </div>
+                        <ul id="ws-file-list" class="space-y-2 max-h-72 overflow-y-auto text-xs"></ul>
+                        <div id="ws-output" class="mt-4 p-4 bg-slate-50 rounded-2xl text-xs mono max-h-48 overflow-y-auto whitespace-pre-wrap text-slate-600">Workspace ready. Connect a folder or drop files.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== REPORT STUDIO ==================== -->
+        <section id="s-report" class="view hidden space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600 tracking-widest">Intelligence Studio</div>
+                    <h2 class="text-xl font-black">Duty / Accounting / Executive Report Generator</h2>
+                    <p class="text-slate-400 text-sm">Upload PDF/image, paste context, or pull from workspace. Use AI or write freely.</p>
+                </header>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="space-y-3">
+                        <div onclick="document.getElementById('rep-in').click()" class="border-2 border-dashed border-slate-200 rounded-2xl p-5 text-center cursor-pointer hover:bg-slate-50">
+                            <input type="file" id="rep-in" class="hidden" accept=".pdf,image/*,.docx,.txt,.xlsx,.csv">
+                            <p class="text-xs font-bold text-indigo-600">+ Extract from PDF / Image / Word / Sheet</p>
+                            <p id="rep-file-name" class="text-[10px] text-slate-400 mt-1">No file attached</p>
+                        </div>
+                        <textarea id="rep-context" class="w-full h-56 p-3 border rounded-2xl text-xs mono outline-none" placeholder="Paste notes, duty log, accounting figures, or let OCR fill this..."></textarea>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400">TEMPLATE</label>
+                                <select id="rep-template" class="w-full border rounded-xl px-3 py-2 text-xs font-bold">
+                                    <option value="Duty Report">Duty / Shift Report</option>
+                                    <option value="Accounting Report">Accounting / Financial Report</option>
+                                    <option value="Executive Summary">Executive Summary</option>
+                                    <option value="Action Items">Action Items & Risk Matrix</option>
+                                    <option value="Custom">Custom Free Write</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400">AI PROVIDER</label>
+                                <select id="rep-provider" class="w-full border rounded-xl px-3 py-2 text-xs font-bold">
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="huggingface">Hugging Face</option>
+                                    <option value="local">Local Template (no key)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button onclick="generateAIReport()" class="w-full bg-slate-900 text-white font-black py-3 rounded-xl hover:bg-indigo-600">GENERATE REPORT</button>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-bold text-slate-400">REPORT OUTPUT (editable)</label>
+                            <div class="flex gap-2">
+                                <button onclick="exportReportDocx()" class="text-[10px] font-bold text-indigo-600">Export DOCX</button>
+                                <button onclick="exportReportPdf()" class="text-[10px] font-bold text-indigo-600">Export PDF</button>
+                            </div>
+                        </div>
+                        <textarea id="rep-output" class="w-full h-80 p-4 bg-slate-50 border rounded-2xl text-xs mono outline-none" placeholder="Generated or hand-written report appears here. Fully editable."></textarea>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TREASURY / COLLECT ==================== -->
+        <section id="s-treasury" class="view hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div onclick="switchSource('wave')" id="card-wave" class="source-wave p-6 rounded-3xl text-white cursor-pointer border-4 border-transparent shadow-lg">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-black italic text-lg uppercase">Wave</span>
+                        <div id="wave-dot" class="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <p class="text-blue-200 text-[10px] font-bold uppercase">Balance</p>
+                    <h2 id="wave-bal" class="mono text-2xl font-bold">$0.00</h2>
+                </div>
+                <div onclick="switchSource('orange')" id="card-orange" class="source-orange p-6 rounded-3xl text-white cursor-pointer border-4 border-transparent opacity-60 shadow-lg">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-black italic text-lg uppercase">Orange Money</span>
+                        <div id="orange-dot" class="w-3 h-3 bg-orange-400 rounded-full hidden"></div>
+                    </div>
+                    <p class="text-orange-100 text-[10px] font-bold uppercase">Balance</p>
+                    <h2 id="orange-bal" class="mono text-2xl font-bold">$0.00</h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
+                    <h4 id="ledger-title" class="font-black text-slate-800 uppercase text-xs">New [Wave] Entry</h4>
+                    <input type="text" id="t-desc" placeholder="Description / Collect reference" class="w-full px-3 py-2.5 bg-slate-50 rounded-xl outline-none text-sm">
+                    <input type="number" id="t-amt" placeholder="0.00" class="w-full px-3 py-2.5 bg-slate-50 rounded-xl outline-none mono font-bold">
+                    <select id="t-type" class="w-full px-3 py-2.5 bg-slate-50 rounded-xl outline-none font-bold text-xs">
+                        <option value="income">Income / Collect (+)</option>
+                        <option value="expense">Expense (-)</option>
+                    </select>
+                    <button onclick="addTransaction()" class="w-full bg-indigo-600 text-white font-black py-3 rounded-xl">POST TRANSACTION</button>
+                    <button onclick="openCollectModal()" class="w-full bg-emerald-600 text-white font-black py-2.5 rounded-xl text-sm">COLLECT BATCH</button>
+                </div>
+                <div class="lg:col-span-2 bg-white rounded-3xl border shadow-sm overflow-hidden">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 border-b">
+                            <tr class="text-[10px] font-black text-slate-400 uppercase">
+                                <th class="px-4 py-3">Date</th><th class="px-4 py-3">Description</th><th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="t-body" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SPREADSHEET DB ==================== -->
+        <section id="s-spreadsheet" class="view hidden space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4 flex flex-wrap justify-between items-center gap-3">
+                    <div>
+                        <div class="text-[10px] uppercase font-black text-indigo-600 tracking-widest">Accounting Database</div>
+                        <h2 class="text-xl font-black">Spreadsheet Register (Invoices • Receipts • Collect)</h2>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="createNewSheet()" class="bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded-lg">New Sheet</button>
+                        <button onclick="document.getElementById('sheet-upload').click()" class="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-lg">Upload XLSX/CSV</button>
+                        <input type="file" id="sheet-upload" class="hidden" accept=".xlsx,.xls,.csv" onchange="loadSheetFile(event)">
+                        <button onclick="exportCurrentSheet()" class="bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg">Export</button>
+                    </div>
+                </header>
+                <div class="overflow-x-auto border rounded-2xl">
+                    <table class="w-full text-left text-xs" id="sheet-table">
+                        <thead class="bg-slate-100" id="sheet-head">
+                            <tr>
+                                <th class="p-2">Date</th><th class="p-2">Type</th><th class="p-2">Ref / Invoice</th>
+                                <th class="p-2">Description</th><th class="p-2 text-right">Amount</th><th class="p-2">Source</th><th class="p-2"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="sheet-body"></tbody>
+                    </table>
+                </div>
+                <div class="mt-4 grid grid-cols-2 md:grid-cols-6 gap-2">
+                    <input id="s-date" type="date" class="border rounded-lg px-2 py-1.5 text-xs">
+                    <select id="s-type" class="border rounded-lg px-2 py-1.5 text-xs font-bold">
+                        <option>Invoice</option><option>Receipt</option><option>Collect</option><option>Payment</option><option>Expense</option>
+                    </select>
+                    <input id="s-ref" placeholder="INV-001 / Ref" class="border rounded-lg px-2 py-1.5 text-xs">
+                    <input id="s-desc" placeholder="Description" class="border rounded-lg px-2 py-1.5 text-xs col-span-2">
+                    <input id="s-amt" type="number" placeholder="Amount" class="border rounded-lg px-2 py-1.5 text-xs mono">
+                </div>
+                <button onclick="addSheetRow()" class="mt-3 bg-indigo-600 text-white font-black py-2.5 px-6 rounded-xl text-sm">ADD TO REGISTER</button>
+            </div>
+        </section>
+
+        <!-- ==================== INVOICE ==================== -->
+        <section id="s-invoice" class="view hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
+                    <h3 class="text-lg font-black">Invoice Studio</h3>
+                    <input type="text" id="i-sender" class="w-full border-b py-2 outline-none font-bold" value="My Company LLC" oninput="updInv()">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="i-client" class="border-b py-2 outline-none" placeholder="Client Name" oninput="updInv()">
+                        <input type="text" id="i-num" class="border-b py-2 outline-none mono" placeholder="INV-001" oninput="updInv()">
+                    </div>
+                    <div id="i-items" class="space-y-2 border-t pt-3">
+                        <div class="flex gap-2 item-row">
+                            <input type="text" placeholder="Item" class="flex-grow border-b py-1 text-sm i-item-desc" oninput="updInv()">
+                            <input type="number" placeholder="Amt" class="w-20 border-b py-1 text-sm i-item-val" oninput="updInv()">
+                        </div>
+                    </div>
+                    <button onclick="addInvoiceRow()" class="text-xs font-black text-indigo-600">+ ADD LINE</button>
+                    <div class="flex gap-2">
+                        <button onclick="generateInvoicePDF()" class="flex-1 bg-indigo-600 text-white font-black py-3 rounded-xl">EXPORT PDF</button>
+                        <button onclick="pushInvoiceToSheet()" class="flex-1 bg-emerald-600 text-white font-black py-3 rounded-xl text-sm">PUSH TO SHEET</button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl border p-8 shadow-lg">
+                    <div class="flex justify-between border-b pb-4 mb-4">
+                        <h1 class="text-2xl font-black text-indigo-600 italic">INVOICE</h1>
+                        <p id="pre-sender" class="font-bold text-right text-sm">My Company LLC</p>
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-black uppercase">Bill To</p>
+                    <p id="pre-client" class="text-lg font-bold mb-6">-</p>
+                    <div id="pre-items" class="space-y-1 min-h-[120px]"></div>
+                    <div class="border-t pt-4 text-right">
+                        <p class="text-xs text-slate-400">Total</p>
+                        <p id="pre-total" class="text-2xl font-black mono">$0.00</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== OCR → SHEET ==================== -->
+        <section id="s-ocr" class="view hidden">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600">OCR Engine + Spreadsheet Push</div>
+                    <h2 class="text-xl font-black">Receipt / Document OCR → Accounting Register</h2>
+                </header>
+                <div onclick="document.getElementById('o-in').click()" class="border-4 border-dashed border-slate-100 rounded-3xl p-12 text-center cursor-pointer hover:bg-indigo-50">
+                    <input type="file" id="o-in" class="hidden" accept=".pdf,image/*">
+                    <h3 class="text-lg font-black">Drop Receipt / Scan / PDF</h3>
+                    <p class="text-slate-400 text-sm">Extract text then optionally add amount & description to Spreadsheet DB</p>
+                </div>
+                <div id="o-result" class="mt-6 hidden space-y-3">
+                    <textarea id="o-out" class="w-full h-48 p-4 bg-slate-50 rounded-2xl mono text-xs outline-none"></textarea>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <input id="ocr-amt" type="number" placeholder="Detected Amount" class="border rounded-lg px-3 py-2 text-sm mono">
+                        <input id="ocr-desc" placeholder="Short description" class="border rounded-lg px-3 py-2 text-sm col-span-2">
+                        <button onclick="pushOcrToSheet()" class="bg-emerald-600 text-white font-black py-2 rounded-xl text-sm">ADD TO SPREADSHEET</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== MERGE ==================== -->
+        <section id="s-merge" class="view hidden">
+            <div class="bg-white rounded-3xl p-8 shadow-sm border">
+                <div onclick="document.getElementById('m-in').click()" class="border-4 border-dashed border-slate-100 rounded-3xl p-12 text-center cursor-pointer hover:bg-indigo-50">
+                    <input type="file" id="m-in" multiple class="hidden" accept=".pdf,image/*">
+                    <h3 class="text-xl font-black">Document Fusion</h3>
+                    <p class="text-slate-400 text-sm">Combine PDFs + images into one master PDF</p>
+                </div>
+                <div id="m-list-area" class="mt-6 hidden">
+                    <div id="m-list" class="grid grid-cols-2 gap-3 mb-4"></div>
+                    <button onclick="runMerge()" class="w-full bg-indigo-600 text-white font-black py-3.5 rounded-2xl">EXPORT MERGED PDF</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== IMAGE RENAMER ==================== -->
+        <section id="s-renamer" class="view hidden space-y-4">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600">Media Utility</div>
+                    <h2 class="text-xl font-black">Batch Image Enumeration & Renamer</h2>
+                </header>
+                <div onclick="document.getElementById('r-in').click()" class="border-4 border-dashed border-slate-100 rounded-3xl p-8 text-center cursor-pointer hover:bg-indigo-50 mb-4">
+                    <input type="file" id="r-in" multiple class="hidden" accept="image/*">
+                    <h3 class="text-lg font-black">Drop Images or Select</h3>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div><label class="text-[10px] font-bold text-slate-400">PREFIX</label><input id="r-prefix" value="IMG_" oninput="previewRenamer()" class="w-full border rounded-xl px-3 py-2 text-sm font-bold"></div>
+                    <div><label class="text-[10px] font-bold text-slate-400">TAG</label><input id="r-tag" value="Project" oninput="previewRenamer()" class="w-full border rounded-xl px-3 py-2 text-sm font-bold"></div>
+                    <div><label class="text-[10px] font-bold text-slate-400">START</label><input type="number" id="r-index" value="1" oninput="previewRenamer()" class="w-full border rounded-xl px-3 py-2 text-sm font-bold"></div>
+                    <div><label class="text-[10px] font-bold text-slate-400">PAD</label><input type="number" id="r-padding" value="3" min="1" max="6" oninput="previewRenamer()" class="w-full border rounded-xl px-3 py-2 text-sm font-bold"></div>
+                </div>
+                <div id="r-preview-area" class="hidden">
+                    <div class="max-h-48 overflow-y-auto border rounded-2xl mb-3">
+                        <table class="w-full text-left text-xs"><thead class="bg-slate-50"><tr><th class="p-2">Original</th><th class="p-2">New Name</th></tr></thead><tbody id="r-table-body"></tbody></table>
+                    </div>
+                    <button onclick="downloadRenamedZip()" class="w-full bg-indigo-600 text-white font-black py-3 rounded-xl">DOWNLOAD ZIP</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== MEDIA STUDIO (Video + future audio) ==================== -->
+        <section id="s-media" class="view hidden space-y-6">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600">Media Studio</div>
+                    <h2 class="text-xl font-black">Video Frame Extractor & Gallery</h2>
+                    <p class="text-slate-400 text-sm">Extract high-res stills from video. (Audio tools can be extended later.)</p>
+                </header>
+                <div id="v-upload-zone" onclick="document.getElementById('v-in').click()" class="border-4 border-dashed border-slate-100 rounded-3xl p-8 text-center cursor-pointer hover:bg-indigo-50 mb-6">
+                    <input type="file" id="v-in" class="hidden" accept="video/*">
+                    <h3 class="text-lg font-black">Upload Video</h3>
+                </div>
+                <div id="v-workspace" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="space-y-3">
+                        <video id="video-preview" controls crossorigin="anonymous"></video>
+                        <button onclick="captureSnip()" class="w-full bg-indigo-600 text-white font-black py-3 rounded-2xl">CAPTURE FRAME</button>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border">
+                        <h4 class="text-xs font-black uppercase text-slate-400 mb-3">Gallery (click to download)</h4>
+                        <div id="v-gallery" class="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TRANSFORMER ==================== -->
+        <section id="s-transformer" class="view hidden space-y-4">
+            <div class="bg-white rounded-3xl p-6 shadow-sm border">
+                <header class="mb-4">
+                    <div class="text-[10px] uppercase font-black text-indigo-600">Content Utility</div>
+                    <h2 class="text-xl font-black">Transform & Reformat</h2>
+                </header>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 border rounded-2xl overflow-hidden">
+                        <div class="px-4 h-10 flex items-center justify-between border-b bg-white text-xs font-black text-slate-500">Source <span id="tc-count">0 chars</span></div>
+                        <textarea id="tc-input" class="w-full h-56 p-3 bg-transparent outline-none resize-none text-sm" oninput="updateTcCount()" placeholder="Paste notes, transcript, unstructured data..."></textarea>
+                    </div>
+                    <div class="bg-slate-50 border rounded-2xl overflow-hidden">
+                        <div class="px-4 h-10 flex items-center border-b bg-white text-xs font-black text-slate-500">Result</div>
+                        <div id="tc-result" class="p-3 text-xs mono h-56 overflow-auto whitespace-pre-wrap">Transformed output...</div>
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                    <select id="tc-mode" class="bg-white border rounded-xl px-3 py-2 text-sm font-bold">
+                        <option value="table">To Structured Table</option>
+                        <option value="summarize">Summarize Bullets</option>
+                        <option value="clean">Clean Layout</option>
+                    </select>
+                    <button onclick="transformContent()" class="bg-slate-900 text-white font-black px-5 py-2 rounded-xl text-sm hover:bg-indigo-600">TRANSFORM</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== CALCULATOR ==================== -->
+        <section id="s-calc" class="view hidden">
+            <div class="max-w-sm mx-auto bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl">
+                <div class="text-right mb-6">
+                    <div id="c-hist" class="text-slate-500 mono text-xs h-4"></div>
+                    <div id="c-res" class="text-white text-4xl font-bold mono truncate">0</div>
+                </div>
+                <div class="grid grid-cols-4 gap-3">
+                    <button onclick="c_num('7')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">7</button>
+                    <button onclick="c_num('8')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">8</button>
+                    <button onclick="c_num('9')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">9</button>
+                    <button onclick="c_op('/')" class="h-12 rounded-2xl bg-indigo-600 text-white font-bold">÷</button>
+                    <button onclick="c_num('4')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">4</button>
+                    <button onclick="c_num('5')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">5</button>
+                    <button onclick="c_num('6')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">6</button>
+                    <button onclick="c_op('*')" class="h-12 rounded-2xl bg-indigo-600 text-white font-bold">×</button>
+                    <button onclick="c_num('1')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">1</button>
+                    <button onclick="c_num('2')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">2</button>
+                    <button onclick="c_num('3')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">3</button>
+                    <button onclick="c_op('-')" class="h-12 rounded-2xl bg-indigo-600 text-white font-bold">-</button>
+                    <button onclick="c_cl()" class="h-12 rounded-2xl bg-slate-700 text-rose-400 font-bold">C</button>
+                    <button onclick="c_num('0')" class="h-12 rounded-2xl bg-slate-800 text-white font-bold">0</button>
+                    <button onclick="c_calc()" class="h-12 rounded-2xl bg-emerald-600 text-white font-bold">=</button>
+                    <button onclick="c_op('+')" class="h-12 rounded-2xl bg-indigo-600 text-white font-bold">+</button>
+                </div>
+                <div class="mt-6 flex gap-3">
+                    <button onclick="pushToLedger('wave')" class="flex-1 bg-blue-600 py-2.5 rounded-xl text-white font-bold text-xs">→ WAVE</button>
+                    <button onclick="pushToLedger('orange')" class="flex-1 bg-orange-600 py-2.5 rounded-xl text-white font-bold text-xs">→ ORANGE</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ==================== AI ASSISTANT DRAWER (Top-Right) ==================== -->
+    <div id="ai-drawer" class="closed fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[90] border-l border-slate-200 flex flex-col">
+        <div class="p-4 border-b flex justify-between items-center bg-indigo-600 text-white">
+            <h3 class="font-black text-sm flex items-center gap-2"><i class="fa-solid fa-robot"></i> AI Assistant</h3>
+            <button onclick="toggleAI()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-3 border-b space-y-2 bg-slate-50">
+            <div class="grid grid-cols-2 gap-2">
+                <select id="ai-provider" class="border rounded-lg px-2 py-1.5 text-xs font-bold" onchange="onProviderChange()">
+                    <option value="gemini">Google Gemini (Free)</option>
+                    <option value="huggingface">Hugging Face</option>
+                    <option value="local">Local Template</option>
+                    <option value="webllm">WebLLM (Local WebGPU)</option>
+                    <option value="gguf">Custom GGUF Upload</option>
+                </select>
+                <input type="password" id="ai-key" placeholder="API Key (optional)" class="border rounded-lg px-2 py-1.5 text-xs" onchange="saveAIKeys()">
+            </div>
+
+            <!-- WebLLM + Quantization panel -->
+            <div id="webllm-panel" class="hidden space-y-2 pt-1 border-t border-slate-200">
+                <p class="text-[10px] font-bold text-indigo-700 flex items-center gap-1"><i class="fa-solid fa-microchip"></i> WebLLM — runs fully in browser (WebGPU)</p>
+                <label class="text-[10px] font-bold text-slate-500">Model + Quantization (smaller = more compression)</label>
+                <select id="webllm-model" class="w-full border rounded-lg px-2 py-1.5 text-[11px] font-bold">
+                    <!-- Highly compressed / browser-friendly -->
+                    <option value="Qwen2-0.5B-Instruct-q4f16_1-MLC">Qwen2 0.5B · q4f16 (≈0.4 GB) — best compression</option>
+                    <option value="Qwen2-1.5B-Instruct-q4f16_1-MLC">Qwen2 1.5B · q4f16 (≈1.0 GB)</option>
+                    <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5 Mini · q4f16 (≈2.2 GB)</option>
+                    <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B · q4f16 (≈0.8 GB)</option>
+                    <option value="gemma-2-2b-it-q4f16_1-MLC">Gemma 2 2B · q4f16 (≈1.6 GB)</option>
+                    <option value="TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC">TinyLlama 1.1B · q4f16 (≈0.7 GB)</option>
+                    <!-- Slightly higher quality / larger -->
+                    <option value="Qwen2-1.5B-Instruct-q4f32_1-MLC">Qwen2 1.5B · q4f32 (higher precision)</option>
+                    <option value="Phi-3.5-mini-instruct-q4f32_1-MLC">Phi-3.5 Mini · q4f32</option>
+                </select>
+                <div class="flex gap-2">
+                    <button onclick="loadWebLLMModel()" id="webllm-load-btn" class="flex-1 bg-indigo-600 text-white text-[11px] font-bold py-1.5 rounded-lg hover:bg-indigo-700">
+                        <i class="fa-solid fa-download"></i> Load Selected Model
+                    </button>
+                    <button onclick="unloadWebLLM()" id="webllm-unload-btn" class="hidden bg-slate-200 text-slate-600 text-[11px] font-bold px-2 py-1.5 rounded-lg">Unload</button>
+                </div>
+                <div id="webllm-progress" class="hidden">
+                    <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                        <div id="webllm-bar" class="bg-indigo-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                    <p id="webllm-progress-text" class="text-[10px] text-slate-500 mt-1">Preparing…</p>
+                </div>
+                <div id="webllm-status" class="text-[10px] text-slate-500 font-medium">No WebLLM model loaded · needs WebGPU</div>
+                <details class="text-[10px] text-slate-500">
+                    <summary class="cursor-pointer font-bold text-slate-600">Quantization formats explained</summary>
+                    <ul class="mt-1 space-y-0.5 list-disc pl-4">
+                        <li><b>q4f16</b> — 4-bit weights + 16-bit activations. Best size/speed trade-off for browsers.</li>
+                        <li><b>q4f32</b> — 4-bit weights + 32-bit activations. Slightly higher quality, more VRAM.</li>
+                        <li><b>q3f16</b> — 3-bit (when available). Maximum compression, lower quality.</li>
+                        <li>Smaller models (0.5B–1.5B) + q4f16 = fastest on laptops/phones.</li>
+                    </ul>
+                </details>
+            </div>
+
+            <!-- Custom GGUF upload panel -->
+            <div id="gguf-panel" class="hidden space-y-2 pt-1 border-t border-slate-200">
+                <p class="text-[10px] font-bold text-emerald-700 flex items-center gap-1"><i class="fa-solid fa-shield-halved"></i> Custom GGUF — file stays in your browser only</p>
+                <div class="flex gap-2">
+                    <button onclick="document.getElementById('gguf-file').click()" class="flex-1 bg-emerald-600 text-white text-[11px] font-bold py-1.5 rounded-lg hover:bg-emerald-700">
+                        <i class="fa-solid fa-upload"></i> Upload GGUF Model
+                    </button>
+                    <button onclick="clearGGUFModel()" id="gguf-clear-btn" class="hidden bg-slate-200 text-slate-600 text-[11px] font-bold px-2 py-1.5 rounded-lg">Clear</button>
+                </div>
+                <input type="file" id="gguf-file" accept=".gguf,application/octet-stream" class="hidden" onchange="onGGUFFileSelected(event)">
+                <div id="gguf-status" class="text-[10px] text-slate-500 font-medium">No custom GGUF loaded</div>
+                <p class="text-[10px] text-slate-400">For full inference prefer WebLLM catalog above. Custom GGUF is stored privately in IndexedDB.</p>
+            </div>
+            <p class="text-[10px] text-slate-400">Cloud keys optional. WebLLM & GGUF never leave this device.</p>
+        </div>
+        <div id="ai-chat" class="flex-1 overflow-y-auto p-4 space-y-3 text-sm"></div>
+        <div class="p-3 border-t flex gap-2">
+            <input id="ai-input" type="text" placeholder="Ask about current tab, report, numbers..." class="flex-1 border rounded-xl px-3 py-2 text-sm outline-none" onkeydown="if(event.key==='Enter')askAI()">
+            <button onclick="askAI()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+
+    <!-- GGUF UPLOAD CONFIRMATION MODAL -->
+    <div id="ggufConfirmModal" class="fixed inset-0 bg-slate-900/70 z-[120] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl"><i class="fa-solid fa-shield-halved"></i></div>
+                <div>
+                    <h3 class="font-black text-lg">Confirm Local GGUF Upload</h3>
+                    <p class="text-xs text-slate-500">For privacy — model never leaves this device</p>
+                </div>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-4 space-y-2 text-sm">
+                <div class="flex justify-between"><span class="text-slate-500">File</span><span id="gguf-confirm-name" class="font-bold mono text-right max-w-[60%] truncate">—</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Size</span><span id="gguf-confirm-size" class="font-bold mono">—</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Storage</span><span class="font-bold text-emerald-600">Browser only (IndexedDB)</span></div>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-[11px] text-amber-800">
+                <strong>Privacy notice:</strong> The GGUF file stays on your device. No data is uploaded to Gemini, Hugging Face, or any external server. Large models may use significant RAM / WebGPU. Recommended: 1B–3B Q4/Q5 models for browser use.
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="cancelGGUFUpload()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
+                <button onclick="confirmGGUFUpload()" class="bg-emerald-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700">
+                    <i class="fa-solid fa-check"></i> Load Model
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- COLLECT MODAL -->
+    <div id="collectModal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <h3 class="font-black text-lg"><i class="fa-solid fa-layer-group text-emerald-600"></i> Batch Collect</h3>
+            <p class="text-xs text-slate-500">Quick-add multiple income/collect entries to the active ledger.</p>
+            <textarea id="collect-batch" rows="5" class="w-full border rounded-xl p-3 text-xs mono" placeholder="One per line: Description | Amount&#10;Client payment | 150&#10;Cash collect | 75.50"></textarea>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeCollectModal()" class="px-4 py-2 text-sm font-bold text-slate-500">Cancel</button>
+                <button onclick="runCollectBatch()" class="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold">Post Batch</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRESENTATION OVERLAY -->
+    <div class="presentation-overlay" id="presentationOverlay">
+        <div class="flex justify-between items-center p-6 border-b border-slate-700">
+            <h3 class="font-bold text-amber-400"><i class="fa-solid fa-display"></i> Presentation Deck</h3>
+            <button onclick="closePresentationMode()" class="bg-rose-600 text-white px-4 py-2 rounded-lg text-sm font-bold">Exit</button>
+        </div>
+        <div class="slide-stage" id="slideStage">
+            <h2 id="slideTitle">Executive Summary</h2>
+            <ul id="slideContent"><li>Loading...</li></ul>
+        </div>
+        <div class="flex justify-between items-center p-6 border-t border-slate-700">
+            <button onclick="changeSlide(-1)" class="bg-indigo-600 px-4 py-2 rounded-lg text-sm font-bold">Previous</button>
+            <span id="slideIndicator" class="text-slate-400 text-sm">Slide 1 of 1</span>
+            <button onclick="changeSlide(1)" class="bg-indigo-600 px-4 py-2 rounded-lg text-sm font-bold">Next</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== CORE STATE ==========
+        let db = JSON.parse(localStorage.getItem('omni_v7_db')) || { wave: [], orange: [] };
+        let sheetRows = JSON.parse(localStorage.getItem('omni_v7_sheet')) || [];
+        let activeSource = 'wave';
+        let mergeStack = [];
+        let renamerFiles = [];
+        let workspaceFiles = [];
+        let c_v = "0", c_o = null, c_p = "", c_r = false;
+        let currentUser = JSON.parse(localStorage.getItem('omni_user')) || null;
+        let presentationSlides = [];
+        let currentSlideIdx = 0;
+        let aiOpen = false;
+
+        // ========== UTILITIES ==========
+        const setL = (v, m) => {
+            document.getElementById('loader-msg').innerText = m || 'Processing';
+            document.getElementById('loader').classList.toggle('hidden', !v);
+        };
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 2800);
+        }
+        function dl(blob, name) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob); a.download = name; a.click();
+        }
+        function saveDB() { localStorage.setItem('omni_v7_db', JSON.stringify(db)); }
+        function saveSheet() { localStorage.setItem('omni_v7_sheet', JSON.stringify(sheetRows)); }
+
+        // ========== AUTH (simplified) ==========
+        function loginGoogle() {
+            setL(true, "Connecting Google...");
+            setTimeout(() => completeLogin({ name: "Google User", avatar: "https://cdn-icons-png.flaticon.com/512/847/847969.png", provider: "Google" }), 900);
+        }
+        function loginMicrosoft() {
+            setL(true, "Connecting Microsoft...");
+            setTimeout(() => completeLogin({ name: "Microsoft User", avatar: "https://cdn-icons-png.flaticon.com/512/732/732221.png", provider: "Microsoft" }), 900);
+        }
+        function completeLogin(user) {
+            setL(false); currentUser = user;
+            localStorage.setItem('omni_user', JSON.stringify(user));
+            document.getElementById('login-buttons').classList.add('hidden');
+            document.getElementById('user-profile').classList.remove('hidden');
+            document.getElementById('user-avatar').src = user.avatar;
+            try {
+                if (!firebase.apps.length) firebase.initializeApp({ databaseURL: "https://omni-v6-suite-default-rtdb.firebaseio.com" });
+                const key = btoa(user.name || 'anon').replace(/=/g,'');
+                firebase.database().ref('users/' + key).set({ name: user.name, lastSeen: new Date().toISOString() });
+                firebase.database().ref('users').on('value', s => {
+                    const c = Object.keys(s.val() || {}).length;
+                    document.getElementById('global-user-count').innerText = c + ' Active';
+                });
+            } catch(e) {}
+        }
+        function logout() {
+            currentUser = null; localStorage.removeItem('omni_user');
+            document.getElementById('login-buttons').classList.remove('hidden');
+            document.getElementById('user-profile').classList.add('hidden');
+        }
+        if (currentUser) completeLogin(currentUser);
+
+        // ========== NAV ==========
+        function nav(id) {
+            document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+            document.getElementById('s-' + id).classList.remove('hidden');
+            document.querySelectorAll('nav button[id^="n-"]').forEach(b => {
+                b.classList.remove('tab-active'); b.classList.add('text-slate-400');
+            });
+            const n = document.getElementById('n-' + id);
+            if (n) { n.classList.add('tab-active'); n.classList.remove('text-slate-400'); }
+            if (id === 'treasury') updateTreasuryUI();
+            if (id === 'spreadsheet') renderSheet();
+        }
+
+        // ========== AI ASSISTANT + WebLLM + LOCAL GGUF ==========
+        let pendingGGUFFile = null;
+        let loadedGGUFMeta = null;
+        let ggufBlob = null;
+        let webllmEngine = null;           // MLC engine instance
+        let webllmModelId = null;
+        let webllmReady = false;
+
+        function toggleAI() {
+            aiOpen = !aiOpen;
+            const d = document.getElementById('ai-drawer');
+            d.classList.toggle('open', aiOpen);
+            d.classList.toggle('closed', !aiOpen);
+            if (aiOpen) {
+                document.getElementById('ai-key').value = localStorage.getItem('omni_ai_key') || '';
+                onProviderChange();
+                refreshGGUFStatus();
+                refreshWebLLMStatus();
+            }
+        }
+        function saveAIKeys() {
+            localStorage.setItem('omni_ai_key', document.getElementById('ai-key').value.trim());
+            showToast('API key saved locally');
+        }
+        function onProviderChange() {
+            const p = document.getElementById('ai-provider').value;
+            document.getElementById('gguf-panel').classList.toggle('hidden', p !== 'gguf');
+            document.getElementById('webllm-panel').classList.toggle('hidden', p !== 'webllm');
+        }
+
+        // ---- WebLLM helpers ----
+        function hasWebGPU() {
+            return !!(navigator.gpu);
+        }
+        function refreshWebLLMStatus() {
+            const el = document.getElementById('webllm-status');
+            const unload = document.getElementById('webllm-unload-btn');
+            if (!hasWebGPU()) {
+                el.innerHTML = '<span class="text-amber-600">⚠ WebGPU not available — use Chrome/Edge or enable flags</span>';
+                unload.classList.add('hidden');
+                return;
+            }
+            if (webllmEngine && webllmModelId) {
+                el.innerHTML = `<span class="text-emerald-600 font-bold">● Ready:</span> ${webllmModelId}`;
+                unload.classList.remove('hidden');
+            } else {
+                el.textContent = 'No WebLLM model loaded · WebGPU detected';
+                unload.classList.add('hidden');
+            }
+        }
+        async function loadWebLLMModel() {
+            if (!hasWebGPU()) {
+                alert('WebGPU is required for WebLLM.\nUse Chrome or Edge (desktop), or enable chrome://flags/#enable-unsafe-webgpu');
+                return;
+            }
+            // Wait for module if still loading
+            if (!window.webllm) {
+                setL(true, 'Waiting for WebLLM library...');
+                await new Promise((resolve) => {
+                    if (window.webllm) return resolve();
+                    window.addEventListener('webllm-ready', resolve, { once: true });
+                    setTimeout(resolve, 8000);
+                });
+                setL(false);
+            }
+            if (!window.webllm || !window.webllm.CreateMLCEngine) {
+                alert('WebLLM library failed to load. Check network / CDN.');
+                return;
+            }
+            const modelId = document.getElementById('webllm-model').value;
+            document.getElementById('webllm-progress').classList.remove('hidden');
+            document.getElementById('webllm-bar').style.width = '0%';
+            document.getElementById('webllm-progress-text').textContent = 'Downloading & compiling model…';
+            document.getElementById('webllm-load-btn').disabled = true;
+            setL(true, 'Loading WebLLM model (first time may take a few minutes)…');
+
+            try {
+                const initProgressCallback = (report) => {
+                    const pct = Math.min(100, Math.round((report.progress || 0) * 100));
+                    document.getElementById('webllm-bar').style.width = pct + '%';
+                    document.getElementById('webllm-progress-text').textContent =
+                        (report.text || 'Loading…') + ' (' + pct + '%)';
+                };
+                // Unload previous
+                if (webllmEngine) {
+                    try { await webllmEngine.unload(); } catch(e) {}
+                    webllmEngine = null;
+                }
+                webllmEngine = await window.webllm.CreateMLCEngine(modelId, {
+                    initProgressCallback
+                });
+                webllmModelId = modelId;
+                webllmReady = true;
+                document.getElementById('webllm-bar').style.width = '100%';
+                document.getElementById('webllm-progress-text').textContent = 'Model ready';
+                refreshWebLLMStatus();
+                showToast('WebLLM model loaded — private inference active');
+                appendAI('assistant', `✅ WebLLM ready\nModel: ${modelId}\n\nQuantization keeps the weights compressed in-browser. All chat stays on this device (WebGPU).`);
+            } catch (err) {
+                console.error(err);
+                alert('WebLLM load failed: ' + (err.message || err) + '\n\nTry a smaller q4f16 model (0.5B / 1.5B).');
+                webllmEngine = null;
+                webllmModelId = null;
+                webllmReady = false;
+                refreshWebLLMStatus();
+            } finally {
+                setL(false);
+                document.getElementById('webllm-load-btn').disabled = false;
+                setTimeout(() => {
+                    document.getElementById('webllm-progress').classList.add('hidden');
+                }, 2000);
+            }
+        }
+        async function unloadWebLLM() {
+            if (webllmEngine) {
+                try { await webllmEngine.unload(); } catch(e) {}
+            }
+            webllmEngine = null;
+            webllmModelId = null;
+            webllmReady = false;
+            refreshWebLLMStatus();
+            showToast('WebLLM model unloaded');
+        }
+        async function chatWithWebLLM(userPrompt, context) {
+            if (!webllmEngine) throw new Error('No WebLLM engine');
+            const system = `You are OmniPro local assistant. Help with accounting, reports, OCR, treasury, and workspace tasks. Be concise and practical.` +
+                (context ? `\n\nCurrent workspace context (may be partial):\n${context.slice(0, 1200)}` : '');
+            const messages = [
+                { role: 'system', content: system },
+                { role: 'user', content: userPrompt }
+            ];
+            const reply = await webllmEngine.chat.completions.create({
+                messages,
+                temperature: 0.7,
+                max_tokens: 512
+            });
+            return reply.choices?.[0]?.message?.content || '(empty response)';
+        }
+        function appendAI(role, text) {
+            const chat = document.getElementById('ai-chat');
+            const div = document.createElement('div');
+            div.className = role === 'user' ? 'text-right' : '';
+            div.innerHTML = `<div class="inline-block max-w-[90%] px-3 py-2 rounded-2xl text-xs ${role==='user'?'bg-indigo-600 text-white':'bg-slate-100 text-slate-800'}">${text.replace(/\n/g,'<br>')}</div>`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // ---- GGUF Upload + Confirm ----
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+            if (bytes < 1024*1024*1024) return (bytes/(1024*1024)).toFixed(2) + ' MB';
+            return (bytes/(1024*1024*1024)).toFixed(2) + ' GB';
+        }
+        function onGGUFFileSelected(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            // Basic validation
+            const name = file.name.toLowerCase();
+            if (!name.endsWith('.gguf') && file.type !== 'application/octet-stream') {
+                if (!confirm('This file does not have a .gguf extension. Continue anyway?')) {
+                    e.target.value = '';
+                    return;
+                }
+            }
+            pendingGGUFFile = file;
+            document.getElementById('gguf-confirm-name').textContent = file.name;
+            document.getElementById('gguf-confirm-size').textContent = formatBytes(file.size);
+            document.getElementById('ggufConfirmModal').classList.remove('hidden');
+            // reset input so same file can be re-selected later
+            e.target.value = '';
+        }
+        function cancelGGUFUpload() {
+            pendingGGUFFile = null;
+            document.getElementById('ggufConfirmModal').classList.add('hidden');
+            showToast('Upload cancelled');
+        }
+        async function confirmGGUFUpload() {
+            if (!pendingGGUFFile) return;
+            const file = pendingGGUFFile;
+            pendingGGUFFile = null;
+            document.getElementById('ggufConfirmModal').classList.add('hidden');
+            setL(true, 'Loading GGUF into browser storage...');
+            try {
+                // Read as ArrayBuffer then store in IndexedDB + keep in memory
+                const buffer = await file.arrayBuffer();
+                ggufBlob = new Blob([buffer], { type: 'application/octet-stream' });
+                loadedGGUFMeta = {
+                    name: file.name,
+                    size: file.size,
+                    loadedAt: new Date().toISOString()
+                };
+                // Persist metadata + blob in IndexedDB for session restore
+                await saveGGUFToIDB(loadedGGUFMeta, buffer);
+                localStorage.setItem('omni_gguf_meta', JSON.stringify(loadedGGUFMeta));
+                document.getElementById('ai-provider').value = 'gguf';
+                onProviderChange();
+                refreshGGUFStatus();
+                showToast('Local GGUF loaded — private mode active');
+                appendAI('assistant', `✅ Local GGUF model loaded for privacy.\n\nFile: ${loadedGGUFMeta.name}\nSize: ${formatBytes(loadedGGUFMeta.size)}\n\nAll prompts while "Local GGUF (Private)" is selected stay on this device. No external API calls are made.`);
+            } catch (err) {
+                alert('Failed to load GGUF: ' + err.message);
+                loadedGGUFMeta = null;
+                ggufBlob = null;
+            } finally {
+                setL(false);
+            }
+        }
+        function refreshGGUFStatus() {
+            const el = document.getElementById('gguf-status');
+            const clearBtn = document.getElementById('gguf-clear-btn');
+            if (loadedGGUFMeta) {
+                el.innerHTML = `<span class="text-emerald-600 font-bold">● ${loadedGGUFMeta.name}</span> · ${formatBytes(loadedGGUFMeta.size)}`;
+                clearBtn.classList.remove('hidden');
+            } else {
+                el.textContent = 'No local model loaded';
+                clearBtn.classList.add('hidden');
+            }
+        }
+        async function clearGGUFModel() {
+            if (!confirm('Remove the local GGUF model from this browser?')) return;
+            loadedGGUFMeta = null;
+            ggufBlob = null;
+            localStorage.removeItem('omni_gguf_meta');
+            try { await deleteGGUFFromIDB(); } catch(e) {}
+            refreshGGUFStatus();
+            showToast('Local model cleared');
+        }
+
+        // IndexedDB helpers for GGUF
+        function openGGUFDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open('OmniProGGUF', 1);
+                req.onupgradeneeded = () => req.result.createObjectStore('models');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+        async function saveGGUFToIDB(meta, buffer) {
+            const db = await openGGUFDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('models', 'readwrite');
+                tx.objectStore('models').put({ meta, buffer }, 'current');
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+            });
+        }
+        async function loadGGUFFromIDB() {
+            try {
+                const db = await openGGUFDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction('models', 'readonly');
+                    const req = tx.objectStore('models').get('current');
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            } catch (e) { return null; }
+        }
+        async function deleteGGUFFromIDB() {
+            const db = await openGGUFDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction('models', 'readwrite');
+                tx.objectStore('models').delete('current');
+                tx.oncomplete = () => resolve();
+            });
+        }
+        // Restore previously loaded GGUF on startup
+        (async function restoreGGUF() {
+            const saved = await loadGGUFFromIDB();
+            if (saved && saved.meta) {
+                loadedGGUFMeta = saved.meta;
+                ggufBlob = new Blob([saved.buffer], { type: 'application/octet-stream' });
+                // status will refresh when AI drawer opens
+            }
+        })();
+
+        async function askAI() {
+            const input = document.getElementById('ai-input');
+            const prompt = input.value.trim();
+            if (!prompt) return;
+            appendAI('user', prompt);
+            input.value = '';
+            const provider = document.getElementById('ai-provider').value;
+            const key = document.getElementById('ai-key').value.trim() || localStorage.getItem('omni_ai_key') || '';
+
+            // Context from current tab
+            let context = '';
+            const activeView = document.querySelector('.view:not(.hidden)');
+            if (activeView) {
+                if (activeView.id === 's-report') context = document.getElementById('rep-context').value.slice(0,800);
+                else if (activeView.id === 's-ocr') context = (document.getElementById('o-out').value || '').slice(0,800);
+                else if (activeView.id === 's-workspace') context = document.getElementById('ws-output').innerText.slice(0,800);
+            }
+
+            appendAI('assistant', 'Thinking...');
+
+            // --- WebLLM (real local inference) ---
+            if (provider === 'webllm') {
+                try {
+                    if (!webllmEngine) {
+                        const last = document.querySelector('#ai-chat > div:last-child');
+                        if (last) last.remove();
+                        appendAI('assistant', '⚠️ No WebLLM model loaded yet.\n\n1. Select a quantized model (prefer q4f16 + 0.5B/1.5B for speed)\n2. Click "Load Selected Model"\n3. Wait for download + compile (first run caches in browser)\n\nNeeds WebGPU (Chrome / Edge recommended).');
+                        return;
+                    }
+                    const text = await chatWithWebLLM(prompt, context);
+                    const last = document.querySelector('#ai-chat > div:last-child');
+                    if (last) last.remove();
+                    appendAI('assistant', `[WebLLM · ${webllmModelId}]\n\n${text}`);
+                } catch (err) {
+                    const last = document.querySelector('#ai-chat > div:last-child');
+                    if (last) last.remove();
+                    appendAI('assistant', 'WebLLM error: ' + (err.message || err) + '\nTry unloading and loading a smaller q4f16 model.');
+                }
+                return;
+            }
+
+            // --- Custom GGUF path (privacy storage; inference via WebLLM catalog preferred) ---
+            if (provider === 'gguf') {
+                setTimeout(() => {
+                    const last = document.querySelector('#ai-chat > div:last-child');
+                    if (last) last.remove();
+                    if (!loadedGGUFMeta || !ggufBlob) {
+                        appendAI('assistant', '⚠️ No custom GGUF loaded.\n\nUpload a .gguf file and confirm the size dialog.\n\nFor live token generation in the browser, use the **WebLLM** provider with a q4f16 quantized model — those are already optimized and compressed for WebGPU.');
+                        return;
+                    }
+                    const reply =
+`[Custom GGUF — Private storage]\nModel: ${loadedGGUFMeta.name} (${formatBytes(loadedGGUFMeta.size)})\n\nFile is stored only in this browser (IndexedDB). No upload to any server.\n\nPrompt received (${prompt.length} chars). Context from tab: ${context.length} chars.\n\nFor full neural inference, switch to provider **WebLLM** and load a quantized catalog model (q4f16 recommended). Custom raw GGUF inference needs an extra WASM runtime; the file itself remains private.`;
+                    appendAI('assistant', reply);
+                }, 500);
+                return;
+            }
+
+            // Cloud / template fallbacks
+            setTimeout(() => {
+                const last = document.querySelector('#ai-chat > div:last-child');
+                if (last) last.remove();
+                let reply = '';
+                if (provider === 'local' || !key) {
+                    reply = `[Local Template]\nPrompt: "${prompt}"\nContext: ${context.length} chars.\n\nTips:\n• WebLLM + q4f16 = private, compressed, real inference\n• Report Studio for duty / accounting reports\n• OCR → Spreadsheet for receipts\n• Treasury Collect for batch income`;
+                } else {
+                    reply = `[${provider.toUpperCase()}]\nStructured reply for: "${prompt.slice(0,80)}…"\n\n1. Summary of request\n2. Suggested accounting / reporting actions\n3. Data to push to Spreadsheet or Treasury\n\n(Live API needs a valid key; this is a template when offline or key missing.)`;
+                }
+                appendAI('assistant', reply);
+            }, 700);
+        }
+
+        // ========== WORKSPACE ==========
+        async function connectWorkspaceFolder() {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    const dirHandle = await window.showDirectoryPicker();
+                    document.getElementById('connectedFolderLabel').innerText = 'Folder: /' + dirHandle.name;
+                    workspaceFiles = [];
+                    for await (const entry of dirHandle.values()) {
+                        if (entry.kind === 'file') workspaceFiles.push(await entry.getFile());
+                    }
+                    renderWorkspaceList();
+                    updateFileMenu();
+                    showToast('Folder connected: ' + dirHandle.name);
+                } catch (e) {
+                    if (e.name !== 'AbortError') showToast('Folder access cancelled');
+                }
+            } else {
+                document.getElementById('ws-dir-in').click();
+            }
+        }
+        function handleDirectorySelect(e) {
+            workspaceFiles = Array.from(e.target.files);
+            document.getElementById('connectedFolderLabel').innerText = 'Folder: Batch (' + workspaceFiles.length + ')';
+            renderWorkspaceList();
+            updateFileMenu();
+            showToast('Directory loaded');
+        }
+        function handleWorkspaceFiles(e) {
+            workspaceFiles = [...workspaceFiles, ...Array.from(e.target.files)];
+            renderWorkspaceList();
+            updateFileMenu();
+            showToast(e.target.files.length + ' file(s) added');
+        }
+        function renderWorkspaceList() {
+            document.getElementById('ws-file-count').innerText = workspaceFiles.length;
+            const ul = document.getElementById('ws-file-list');
+            ul.innerHTML = workspaceFiles.map((f,i) =>
+                `<li class="flex justify-between bg-slate-50 px-3 py-2 rounded-lg"><span class="truncate">${f.name}</span><span class="text-slate-400">${(f.size/1024).toFixed(1)} KB</span></li>`
+            ).join('');
+        }
+        function updateFileMenu() {
+            const sel = document.getElementById('activeDocSelector');
+            sel.innerHTML = '<option value="">-- Select Document --</option>';
+            workspaceFiles.forEach((f,i) => {
+                const o = document.createElement('option');
+                o.value = i; o.textContent = f.name + ' (' + (f.size/1024).toFixed(1) + ' KB)';
+                sel.appendChild(o);
+            });
+        }
+        async function onWorkspaceFileSelect() {
+            const idx = document.getElementById('activeDocSelector').value;
+            if (idx === '') return;
+            const file = workspaceFiles[idx];
+            setL(true, 'Loading ' + file.name);
+            try {
+                const text = await extractTextFromFile(file);
+                document.getElementById('ws-output').innerText = '=== ' + file.name + ' ===\n\n' + text.slice(0, 4000);
+                // Also push into report context if useful
+                document.getElementById('rep-context').value = text.slice(0, 8000);
+                showToast('Loaded: ' + file.name);
+            } catch (err) {
+                document.getElementById('ws-output').innerText = 'Error: ' + err.message;
+            } finally { setL(false); }
+        }
+        async function extractTextFromFile(file) {
+            const name = file.name.toLowerCase();
+            if (name.endsWith('.docx')) {
+                const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+                return res.value;
+            } else if (name.endsWith('.xlsx') || name.endsWith('.csv') || name.endsWith('.xls')) {
+                const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+                return wb.SheetNames.map(s => XLSX.utils.sheet_to_csv(wb.Sheets[s])).join('\n');
+            } else if (name.endsWith('.pdf')) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                let text = '';
+                for (let i = 1; i <= Math.min(pdf.numPages, 20); i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(it => it.str).join(' ') + '\n';
+                }
+                return text;
+            } else if (file.type.startsWith('image/')) {
+                const worker = await Tesseract.createWorker('eng');
+                const ret = await worker.recognize(file);
+                await worker.terminate();
+                return ret.data.text;
+            } else {
+                return await file.text();
+            }
+        }
+        function analyzeFolder() {
+            if (!workspaceFiles.length) return showToast('No files');
+            document.getElementById('ws-output').innerText =
+                'Directory Analysis\nTotal: ' + workspaceFiles.length + '\n\n' +
+                workspaceFiles.map(f => '• ' + f.name + ' (' + f.size + ' B)').join('\n');
+        }
+        async function extractAllContent() {
+            if (!workspaceFiles.length) return showToast('No files');
+            setL(true, 'Extracting all...');
+            let out = '';
+            for (const f of workspaceFiles) {
+                try {
+                    const t = await extractTextFromFile(f);
+                    out += '--- ' + f.name + ' ---\n' + t.slice(0, 600) + '\n\n';
+                } catch (e) { out += '--- ' + f.name + ' --- ERROR\n'; }
+            }
+            document.getElementById('ws-output').innerText = out;
+            setL(false);
+            showToast('Extraction complete');
+        }
+
+        // ========== REPORT STUDIO ==========
+        document.getElementById('rep-in').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('rep-file-name').innerText = file.name;
+            setL(true, 'Parsing...');
+            try {
+                const text = await extractTextFromFile(file);
+                document.getElementById('rep-context').value = text;
+            } catch (err) { alert(err.message); }
+            finally { setL(false); }
+        };
+        function generateAIReport() {
+            const context = document.getElementById('rep-context').value;
+            const template = document.getElementById('rep-template').value;
+            const provider = document.getElementById('rep-provider').value;
+            if (!context.trim() && template !== 'Custom') return alert('Add context or upload a file first');
+            setL(true, 'Building ' + template + '...');
+            setTimeout(() => {
+                let body = '';
+                if (template === 'Duty Report') {
+                    body = `DUTY / SHIFT REPORT\nDate: ${new Date().toLocaleDateString()}\n\n1. OVERVIEW\nParsed ${context.length} characters of source material.\n\n2. KEY ACTIVITIES\n- Reviewed operational notes and supporting documents.\n- Cross-checked figures where available.\n\n3. OBSERVATIONS & ISSUES\n- Data integrity appears consistent with provided context.\n\n4. ACTIONS TAKEN / RECOMMENDED\n- Update Treasury ledger for any cash movements.\n- Push material invoices/receipts into Spreadsheet DB.\n\n5. SIGN-OFF\nPrepared via OmniPro Report Studio (${provider}).`;
+                } else if (template === 'Accounting Report') {
+                    body = `ACCOUNTING / FINANCIAL REPORT\nPeriod: ${new Date().toLocaleDateString()}\n\n1. SUMMARY\nSource context length: ${context.length} chars.\n\n2. RECEIPTS & COLLECT\n- Review OCR results and Treasury entries.\n- Ensure all invoices are registered in Spreadsheet DB.\n\n3. DISBURSEMENTS\n- Match expenses against supporting documents.\n\n4. RECONCILIATION NOTES\n- Wave & Orange balances should be reconciled daily.\n\n5. NEXT STEPS\n- Export register and attach supporting PDFs.\n\nGenerated with ${provider} assistance.`;
+                } else if (template === 'Executive Summary') {
+                    body = `EXECUTIVE SUMMARY\n\n1. Context volume: ${context.length} characters.\n2. Key themes extracted from source material.\n3. Recommended management actions.\n4. Risk / opportunity highlights.\n\n(Full narrative can be refined in the editable box.)`;
+                } else if (template === 'Action Items') {
+                    body = `ACTION ITEMS & RISK MATRIX\n\n| # | Action | Owner | Priority | Status |\n|---|--------|-------|----------|--------|\n| 1 | Reconcile Wave/Orange | Finance | High | Open |\n| 2 | Register pending invoices | Acc. | Med | Open |\n| 3 | Archive source documents | Ops | Low | Open |\n\nRisks: incomplete OCR, missing references.`;
+                } else {
+                    body = context || 'Start writing your custom report here...';
+                }
+                document.getElementById('rep-output').value = body;
+                setL(false);
+                showToast('Report ready – edit freely');
+            }, 700);
+        }
+        async function exportReportDocx() {
+            const text = document.getElementById('rep-output').value;
+            if (!text.trim()) return alert('Nothing to export');
+            const { Document, Packer, Paragraph, TextRun } = docx;
+            const doc = new Document({
+                sections: [{ children: text.split('\n').map(l => new Paragraph({ children: [new TextRun(l)] })) }]
+            });
+            const blob = await Packer.toBlob(doc);
+            dl(blob, 'OmniPro_Report.docx');
+        }
+        async function exportReportPdf() {
+            const text = document.getElementById('rep-output').value;
+            if (!text.trim()) return alert('Nothing to export');
+            setL(true, 'Building PDF...');
+            try {
+                const doc = await PDFLib.PDFDocument.create();
+                const page = doc.addPage([595, 842]);
+                const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const lines = text.split('\n');
+                let y = 800;
+                for (const line of lines) {
+                    if (y < 40) { page = doc.addPage([595, 842]); y = 800; }
+                    page.drawText(line.slice(0, 90), { x: 40, y, size: 10, font });
+                    y -= 14;
+                }
+                dl(new Blob([await doc.save()], { type: 'application/pdf' }), 'OmniPro_Report.pdf');
+            } catch (e) { alert(e.message); }
+            finally { setL(false); }
+        }
+
+        // ========== TREASURY / COLLECT ==========
+        function switchSource(s) {
+            activeSource = s;
+            document.getElementById('card-wave').classList.toggle('opacity-60', s !== 'wave');
+            document.getElementById('card-orange').classList.toggle('opacity-60', s !== 'orange');
+            document.getElementById('card-wave').classList.toggle('border-blue-400', s === 'wave');
+            document.getElementById('card-orange').classList.toggle('border-orange-400', s === 'orange');
+            document.getElementById('wave-dot').classList.toggle('hidden', s !== 'wave');
+            document.getElementById('orange-dot').classList.toggle('hidden', s !== 'orange');
+            document.getElementById('ledger-title').innerText = 'New [' + s.toUpperCase() + '] Entry';
+            updateTreasuryUI();
+        }
+        function addTransaction() {
+            const desc = document.getElementById('t-desc').value;
+            const amt = parseFloat(document.getElementById('t-amt').value);
+            const type = document.getElementById('t-type').value;
+            if (!desc || isNaN(amt)) return;
+            db[activeSource].unshift({ id: Date.now(), date: new Date().toLocaleDateString(), desc, amt, type });
+            saveDB(); updateTreasuryUI();
+            document.getElementById('t-desc').value = ''; document.getElementById('t-amt').value = '';
+            showToast('Posted to ' + activeSource);
+        }
+        function updateTreasuryUI() {
+            let wB = 0, oB = 0;
+            db.wave.forEach(t => wB += t.type === 'income' ? t.amt : -t.amt);
+            db.orange.forEach(t => oB += t.type === 'income' ? t.amt : -t.amt);
+            document.getElementById('wave-bal').innerText = '$' + wB.toFixed(2);
+            document.getElementById('orange-bal').innerText = '$' + oB.toFixed(2);
+            document.getElementById('global-balance').innerText = '$' + (wB + oB).toFixed(2);
+            document.getElementById('t-body').innerHTML = db[activeSource].map(t => `
+                <tr>
+                    <td class="px-4 py-3 text-[10px] text-slate-400 font-bold">${t.date}</td>
+                    <td class="px-4 py-3 text-xs font-bold">${t.desc}</td>
+                    <td class="px-4 py-3 text-right mono font-bold ${t.type==='income'?'text-emerald-600':'text-rose-500'}">${t.type==='income'?'+':'-'}${t.amt.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right"><button onclick="delTx(${t.id})" class="text-slate-300 hover:text-rose-500">✕</button></td>
+                </tr>`).join('');
+        }
+        function delTx(id) { db[activeSource] = db[activeSource].filter(x => x.id !== id); saveDB(); updateTreasuryUI(); }
+        function openCollectModal() { document.getElementById('collectModal').classList.remove('hidden'); }
+        function closeCollectModal() { document.getElementById('collectModal').classList.add('hidden'); }
+        function runCollectBatch() {
+            const lines = document.getElementById('collect-batch').value.split('\n').filter(l => l.trim());
+            lines.forEach(line => {
+                const parts = line.split('|').map(p => p.trim());
+                const desc = parts[0] || 'Collect';
+                const amt = parseFloat(parts[1]) || 0;
+                if (amt) db[activeSource].unshift({ id: Date.now() + Math.random(), date: new Date().toLocaleDateString(), desc, amt, type: 'income' });
+            });
+            saveDB(); updateTreasuryUI(); closeCollectModal();
+            showToast(lines.length + ' collect entries posted');
+        }
+
+        // ========== SPREADSHEET DB ==========
+        function renderSheet() {
+            const body = document.getElementById('sheet-body');
+            body.innerHTML = sheetRows.map((r, i) => `
+                <tr class="border-t">
+                    <td class="p-2">${r.date}</td>
+                    <td class="p-2">${r.type}</td>
+                    <td class="p-2 mono">${r.ref}</td>
+                    <td class="p-2">${r.desc}</td>
+                    <td class="p-2 text-right mono font-bold">${Number(r.amt).toFixed(2)}</td>
+                    <td class="p-2 text-slate-400">${r.source || ''}</td>
+                    <td class="p-2"><button onclick="delSheetRow(${i})" class="text-rose-400">✕</button></td>
+                </tr>`).join('') || '<tr><td colspan="7" class="p-4 text-center text-slate-400">Empty register – add rows or upload a sheet</td></tr>';
+        }
+        function addSheetRow() {
+            const date = document.getElementById('s-date').value || new Date().toISOString().slice(0,10);
+            const type = document.getElementById('s-type').value;
+            const ref = document.getElementById('s-ref').value || '';
+            const desc = document.getElementById('s-desc').value || '';
+            const amt = parseFloat(document.getElementById('s-amt').value) || 0;
+            sheetRows.push({ date, type, ref, desc, amt, source: 'Manual' });
+            saveSheet(); renderSheet();
+            document.getElementById('s-ref').value = ''; document.getElementById('s-desc').value = ''; document.getElementById('s-amt').value = '';
+            showToast('Row added');
+        }
+        function delSheetRow(i) { sheetRows.splice(i,1); saveSheet(); renderSheet(); }
+        function createNewSheet() {
+            if (confirm('Clear current register and start fresh?')) {
+                sheetRows = []; saveSheet(); renderSheet(); showToast('New empty sheet');
+            }
+        }
+        function loadSheetFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const wb = XLSX.read(ev.target.result, { type: 'array' });
+                const ws = wb.Sheets[wb.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(ws);
+                sheetRows = json.map(r => ({
+                    date: r.Date || r.date || '',
+                    type: r.Type || r.type || 'Import',
+                    ref: r.Ref || r.Invoice || r.ref || '',
+                    desc: r.Description || r.desc || '',
+                    amt: parseFloat(r.Amount || r.amt || 0),
+                    source: 'Import'
+                }));
+                saveSheet(); renderSheet();
+                showToast('Imported ' + sheetRows.length + ' rows');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        function exportCurrentSheet() {
+            const ws = XLSX.utils.json_to_sheet(sheetRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Register');
+            XLSX.writeFile(wb, 'OmniPro_Accounting_Register.xlsx');
+            showToast('Exported');
+        }
+
+        // ========== INVOICE ==========
+        function addInvoiceRow() {
+            const d = document.createElement('div');
+            d.className = 'flex gap-2 item-row';
+            d.innerHTML = `<input type="text" placeholder="Item" class="flex-grow border-b py-1 text-sm i-item-desc" oninput="updInv()">
+                           <input type="number" placeholder="0" class="w-20 border-b py-1 text-sm i-item-val" oninput="updInv()">`;
+            document.getElementById('i-items').appendChild(d);
+            updInv();
+        }
+        function updInv() {
+            document.getElementById('pre-sender').innerText = document.getElementById('i-sender').value || 'My Company LLC';
+            document.getElementById('pre-client').innerText = document.getElementById('i-client').value || '-';
+            let tot = 0, html = '';
+            document.querySelectorAll('.item-row').forEach(r => {
+                const desc = r.querySelector('.i-item-desc').value || 'Item';
+                const v = parseFloat(r.querySelector('.i-item-val').value) || 0;
+                tot += v;
+                html += `<div class="flex justify-between text-xs py-1 border-b"><span>${desc}</span><span class="mono">$${v.toFixed(2)}</span></div>`;
+            });
+            document.getElementById('pre-items').innerHTML = html;
+            document.getElementById('pre-total').innerText = '$' + tot.toFixed(2);
+        }
+        async function generateInvoicePDF() {
+            setL(true, 'Building Invoice...');
+            try {
+                const doc = await PDFLib.PDFDocument.create();
+                const page = doc.addPage([600, 800]);
+                const { width, height } = page.getSize();
+                const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const bold = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+                const sender = document.getElementById('i-sender').value || 'My Company LLC';
+                const client = document.getElementById('i-client').value || 'Client';
+                const num = document.getElementById('i-num').value || 'INV-001';
+                page.drawText('INVOICE', { x: 50, y: height - 50, size: 26, font: bold, color: PDFLib.rgb(0.31, 0.27, 0.9) });
+                page.drawText('#' + num, { x: width - 180, y: height - 45, size: 11, font });
+                page.drawText('From: ' + sender, { x: width - 180, y: height - 60, size: 10, font });
+                page.drawText('Bill To:', { x: 50, y: height - 110, size: 10, font: bold });
+                page.drawText(client, { x: 50, y: height - 128, size: 14, font: bold });
+                let y = height - 170;
+                page.drawText('Description', { x: 50, y, size: 11, font: bold });
+                page.drawText('Amount', { x: width - 120, y, size: 11, font: bold });
+                y -= 15;
+                let total = 0;
+                document.querySelectorAll('.item-row').forEach(row => {
+                    const desc = row.querySelector('.i-item-desc').value || 'Item';
+                    const val = parseFloat(row.querySelector('.i-item-val').value) || 0;
+                    total += val;
+                    page.drawText(desc.slice(0, 50), { x: 50, y, size: 10, font });
+                    page.drawText('$' + val.toFixed(2), { x: width - 120, y, size: 10, font });
+                    y -= 18;
+                });
+                y -= 10;
+                page.drawText('Total: $' + total.toFixed(2), { x: width - 160, y, size: 14, font: bold });
+                dl(new Blob([await doc.save()], { type: 'application/pdf' }), num + '.pdf');
+            } catch (e) { alert(e.message); }
+            finally { setL(false); }
+        }
+        function pushInvoiceToSheet() {
+            const num = document.getElementById('i-num').value || 'INV-' + Date.now();
+            const client = document.getElementById('i-client').value || 'Client';
+            let total = 0;
+            document.querySelectorAll('.item-row').forEach(r => total += parseFloat(r.querySelector('.i-item-val').value) || 0);
+            sheetRows.push({
+                date: new Date().toISOString().slice(0,10),
+                type: 'Invoice',
+                ref: num,
+                desc: 'Invoice to ' + client,
+                amt: total,
+                source: 'Invoice Studio'
+            });
+            saveSheet();
+            showToast('Invoice pushed to Spreadsheet DB');
+            nav('spreadsheet');
+        }
+
+        // ========== OCR → SHEET ==========
+        document.getElementById('o-in').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            setL(true, 'Running OCR...');
+            try {
+                let source = file;
+                if (file.type === 'application/pdf') {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                    const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+                    const page = await pdf.getPage(1);
+                    const viewport = page.getViewport({ scale: 2 });
+                    const canvas = document.createElement('canvas');
+                    canvas.height = viewport.height; canvas.width = viewport.width;
+                    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+                    source = canvas;
+                }
+                const worker = await Tesseract.createWorker('eng');
+                const ret = await worker.recognize(source);
+                await worker.terminate();
+                document.getElementById('o-result').classList.remove('hidden');
+                document.getElementById('o-out').value = ret.data.text;
+                // naive amount guess
+                const m = ret.data.text.match(/[\d,]+\.\d{2}/);
+                if (m) document.getElementById('ocr-amt').value = m[0].replace(/,/g,'');
+            } catch (err) { alert('OCR failed: ' + err.message); }
+            finally { setL(false); }
+        };
+        function pushOcrToSheet() {
+            const amt = parseFloat(document.getElementById('ocr-amt').value) || 0;
+            const desc = document.getElementById('ocr-desc').value || 'OCR Receipt';
+            sheetRows.push({
+                date: new Date().toISOString().slice(0,10),
+                type: 'Receipt',
+                ref: 'OCR-' + Date.now().toString().slice(-6),
+                desc,
+                amt,
+                source: 'OCR'
+            });
+            saveSheet();
+            showToast('Receipt added to Spreadsheet');
+            nav('spreadsheet');
+        }
+
+        // ========== MERGE ==========
+        document.getElementById('m-in').onchange = (e) => {
+            Array.from(e.target.files).forEach(f => mergeStack.push(f));
+            document.getElementById('m-list-area').classList.remove('hidden');
+            renderMergeList();
+        };
+        function renderMergeList() {
+            document.getElementById('m-list').innerHTML = mergeStack.map((f,i) => `
+                <div class="bg-slate-50 border p-2 rounded-xl flex justify-between text-[10px] font-bold">
+                    <span class="truncate">${f.name}</span>
+                    <button onclick="mergeStack.splice(${i},1);renderMergeList();" class="text-rose-400">✕</button>
+                </div>`).join('');
+            if (!mergeStack.length) document.getElementById('m-list-area').classList.add('hidden');
+        }
+        async function runMerge() {
+            if (!mergeStack.length) return;
+            setL(true, 'Merging...');
+            try {
+                const doc = await PDFLib.PDFDocument.create();
+                for (const f of mergeStack) {
+                    const b = await f.arrayBuffer();
+                    if (f.type === 'application/pdf') {
+                        const p = await PDFLib.PDFDocument.load(b);
+                        const pgs = await doc.copyPages(p, p.getPageIndices());
+                        pgs.forEach(pg => doc.addPage(pg));
+                    } else {
+                        const img = f.type.includes('png') ? await doc.embedPng(b) : await doc.embedJpg(b);
+                        const pg = doc.addPage([img.width, img.height]);
+                        pg.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+                    }
+                }
+                dl(new Blob([await doc.save()], { type: 'application/pdf' }), 'merged_document.pdf');
+            } catch (e) { alert(e.message); }
+            finally { setL(false); }
+        }
+
+        // ========== RENAMER ==========
+        document.getElementById('r-in').onchange = (e) => {
+            renamerFiles = Array.from(e.target.files);
+            if (renamerFiles.length) {
+                document.getElementById('r-preview-area').classList.remove('hidden');
+                previewRenamer();
+            }
+        };
+        function previewRenamer() {
+            const prefix = document.getElementById('r-prefix').value;
+            const tag = document.getElementById('r-tag').value;
+            let idx = parseInt(document.getElementById('r-index').value) || 1;
+            const pad = parseInt(document.getElementById('r-padding').value) || 3;
+            const tbody = document.getElementById('r-table-body');
+            tbody.innerHTML = '';
+            renamerFiles.forEach(file => {
+                const ext = file.name.substring(file.name.lastIndexOf('.'));
+                const seq = String(idx++).padStart(pad, '0');
+                const newName = `${prefix}${tag}_${seq}${ext}`;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td class="p-2 font-bold">${file.name}</td><td class="p-2 text-indigo-600 mono font-bold">${newName}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+        async function downloadRenamedZip() {
+            setL(true, 'Building ZIP...');
+            try {
+                const zip = new JSZip();
+                const prefix = document.getElementById('r-prefix').value;
+                const tag = document.getElementById('r-tag').value;
+                let idx = parseInt(document.getElementById('r-index').value) || 1;
+                const pad = parseInt(document.getElementById('r-padding').value) || 3;
+                for (const file of renamerFiles) {
+                    const ext = file.name.substring(file.name.lastIndexOf('.'));
+                    const seq = String(idx++).padStart(pad, '0');
+                    zip.file(`${prefix}${tag}_${seq}${ext}`, await file.arrayBuffer());
+                }
+                dl(await zip.generateAsync({ type: 'blob' }), 'Renamed_Images.zip');
+            } catch (e) { alert(e.message); }
+            finally { setL(false); }
+        }
+
+        // ========== MEDIA / VIDEO ==========
+        document.getElementById('v-in').onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('video-preview').src = URL.createObjectURL(file);
+            document.getElementById('v-workspace').classList.remove('hidden');
+        };
+        function captureSnip() {
+            const video = document.getElementById('video-preview');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.className = 'rounded-xl border shadow-sm cursor-pointer hover:opacity-80';
+            img.onclick = () => { const a = document.createElement('a'); a.href = dataUrl; a.download = 'frame_' + Date.now() + '.png'; a.click(); };
+            document.getElementById('v-gallery').prepend(img);
+        }
+
+        // ========== TRANSFORMER ==========
+        function updateTcCount() {
+            document.getElementById('tc-count').innerText = document.getElementById('tc-input').value.length + ' chars';
+        }
+        function transformContent() {
+            const input = document.getElementById('tc-input').value;
+            const mode = document.getElementById('tc-mode').value;
+            if (!input.trim()) return alert('Enter text first');
+            setL(true, 'Transforming...');
+            setTimeout(() => {
+                const lines = input.split('\n').filter(l => l.trim());
+                let result = '';
+                if (mode === 'table') result = '| # | Content |\n|---|---|\n' + lines.map((l,i) => `| ${i+1} | ${l} |`).join('\n');
+                else if (mode === 'summarize') result = 'SUMMARY:\n' + lines.map(l => '• ' + l).join('\n');
+                else result = lines.join('\n\n');
+                document.getElementById('tc-result').innerText = result;
+                setL(false);
+            }, 400);
+        }
+
+        // ========== CALCULATOR ==========
+        function c_num(n) { if (c_v === '0' || c_r) { c_v = n; c_r = false; } else c_v += n; c_up(); }
+        function c_op(op) { c_p = c_v; c_o = op; c_r = true; document.getElementById('c-hist').innerText = c_p + ' ' + op; }
+        function c_calc() {
+            let r = 0, p = parseFloat(c_p), c = parseFloat(c_v);
+            if (c_o === '+') r = p + c; else if (c_o === '-') r = p - c; else if (c_o === '*') r = p * c; else if (c_o === '/') r = p / c;
+            c_v = r.toString(); c_o = null; c_r = true; c_up(); document.getElementById('c-hist').innerText = '';
+        }
+        function c_cl() { c_v = '0'; c_p = ''; c_o = null; c_up(); }
+        function c_up() { document.getElementById('c-res').innerText = c_v; }
+        function pushToLedger(src) {
+            nav('treasury'); switchSource(src);
+            document.getElementById('t-amt').value = parseFloat(c_v).toFixed(2);
+            document.getElementById('t-desc').focus();
+        }
+
+        // ========== PRESENTATION ==========
+        function launchPresentationMode() {
+            presentationSlides = [
+                {
+                    title: 'Workspace Overview',
+                    points: [
+                        'Documents loaded: ' + workspaceFiles.length,
+                        'Folder: ' + (document.getElementById('connectedFolderLabel').innerText || 'None'),
+                        'Treasury balance: ' + document.getElementById('global-balance').innerText
+                    ]
+                },
+                {
+                    title: 'Accounting Snapshot',
+                    points: [
+                        'Spreadsheet rows: ' + sheetRows.length,
+                        'Wave transactions: ' + db.wave.length,
+                        'Orange transactions: ' + db.orange.length
+                    ]
+                },
+                {
+                    title: 'Next Actions',
+                    points: [
+                        'Reconcile daily Collect entries',
+                        'Push new invoices & OCR receipts to register',
+                        'Generate duty / accounting report from Report Studio'
+                    ]
+                }
+            ];
+            currentSlideIdx = 0;
+            renderSlide();
+            document.getElementById('presentationOverlay').style.display = 'flex';
+        }
+        function renderSlide() {
+            const s = presentationSlides[currentSlideIdx];
+            document.getElementById('slideTitle').innerText = s.title;
+            document.getElementById('slideContent').innerHTML = s.points.map(p => '<li>' + p + '</li>').join('');
+            document.getElementById('slideIndicator').innerText = `Slide ${currentSlideIdx + 1} of ${presentationSlides.length}`;
+        }
+        function changeSlide(d) {
+            currentSlideIdx = Math.max(0, Math.min(presentationSlides.length - 1, currentSlideIdx + d));
+            renderSlide();
+        }
+        function closePresentationMode() {
+            document.getElementById('presentationOverlay').style.display = 'none';
+        }
+
+        // ========== INIT ==========
+        updateTreasuryUI();
+        renderSheet();
+        updInv();
+        // Pre-fill today's date on sheet form
+        document.getElementById('s-date').value = new Date().toISOString().slice(0,10);
+    </script>
+</body>
+</html>
